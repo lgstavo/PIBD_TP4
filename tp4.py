@@ -435,6 +435,32 @@ def menu_medicamentos_delete():
     
     print(f"Medicamento {medicamento.nome_comercial} deletado com sucesso.")
 
+def menu_medicamentos_estoque_subtract():
+    cod_unidade = input("Código da unidade de saúde: ")
+    unidade = get_unidade(cod_unidade)
+    if not unidade:
+        print("Unidade não encontrada.")
+        return
+    
+    lote = input("Lote do medicamento: ")
+    cod_anvisa = input("Código ANVISA do medicamento: ")
+    quantidade = int(input("Quantidade a ser diminuída do estoque: "))
+    
+    query = """
+    UPDATE medicamentoestocado
+    SET quantidade_med_estoque = quantidade_med_estoque - %s
+    WHERE lote_med = %s AND cod_anvisa_med = %s AND cod_unidade = %s
+    """
+    
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (quantidade, lote, cod_anvisa, cod_unidade))
+        conn.commit()
+        print(f"{quantidade} unidades do medicamento {cod_anvisa} no lote {lote} foram removidas do estoque da unidade {unidade.nome}.")
+    except Exception as e:
+        conn.rollback()
+        print(f"Erro ao diminuir estoque: {str(e)}")
+
 cases = {
     '1': menu_unidades_get,
     '2': menu_unidades_add,
@@ -446,6 +472,7 @@ cases = {
     '8': menu_medicamentos_delete,
     '9': menu_medicamentos_estoque_get,
     '10': menu_medicamentos_estoque_add,
+    '11': menu_medicamentos_estoque_subtract,
 }
 
 # Console menu interface
@@ -462,6 +489,7 @@ def main_menu():
         print("8. Deletar Medicamento")
         print("9. Listar Estoque de Medicamento por Unidade")
         print("10. Adicionar novo Medicamento ao Estoque de uma Unidade")
+        print("11. Diminuir Medicamento do Estoque de uma Unidade")
         print("0. Sair")
         
         print("")
