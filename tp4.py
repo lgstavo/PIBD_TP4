@@ -1,16 +1,84 @@
 # pip install psycopg2-binary
 
 import psycopg2
+from psycopg2 import sql
 import pandas as pd
 import warnings
 
 warnings.filterwarnings('ignore')
 
 conn = psycopg2.connect(
-    dbname='saude',
+    dbname='postgres',
     user='postgres',
     password='postgres',
     host='localhost')
+
+conn.autocommit = True
+cur = conn.cursor()
+
+nome_db = 'saude'
+
+cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (nome_db,))
+flag_exist = cur.fetchone()
+
+if not flag_exist:
+    cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(nome_db)))
+    print(f"Database '{nome_db}' criado com sucesso.")
+else:
+    print(f"Database '{nome_db}' já existe.")
+
+cur.close()
+conn.close()
+
+conn = psycopg2.connect(
+    dbname=nome_db,
+    user='postgres',
+    password='postgres',
+    host='localhost')
+
+if not flag_exist:
+    cur = conn.cursor()
+    create_tables_sql = """
+    CREATE TABLE unidadesaude(
+        cod_unidade INTEGER PRIMARY KEY,
+        nome_unidade VARCHAR(100) UNIQUE NOT NULL,
+        tel_unidade VARCHAR(11),
+        tipo_unidade VARCHAR(40),
+        rua_end_unidade VARCHAR(100),
+        num_end_unidade INTEGER,
+        bairro_end_unidade VARCHAR(40),
+        cep_end_unidade VARCHAR(8)
+    );
+
+    CREATE TABLE medicamento(
+        cod_anvisa_med VARCHAR(13) PRIMARY KEY,
+        nome_comercial VARCHAR(100) NOT NULL,
+        fabricante_med VARCHAR(50),
+        apresentacao_med VARCHAR(100),
+        forma_administracao_med VARCHAR(30),
+        principio_ativo_med VARCHAR(50) NOT NULL
+    );
+
+    CREATE TABLE medicamentoestocado(
+        lote_med VARCHAR(7),
+        cod_anvisa_med VARCHAR(13),
+        cod_unidade INTEGER,
+        validade_med_estoque DATE,
+        quantidade_med_estoque INTEGER NOT NULL,
+        CONSTRAINT pkmedicamentoestocado PRIMARY KEY(lote_med, cod_anvisa_med, cod_unidade),
+        CONSTRAINT fkmedestoquemedicamento FOREIGN KEY(cod_anvisa_med)
+            REFERENCES medicamento(cod_anvisa_med) ON DELETE CASCADE ON UPDATE CASCADE,
+        CONSTRAINT fkmedestoqueunidadesaude FOREIGN KEY(cod_unidade)
+            REFERENCES unidadesaude(cod_unidade) ON DELETE CASCADE ON UPDATE CASCADE
+    );
+    """
+
+    cur.execute(create_tables_sql)
+    conn.commit()
+    
+
+    cur.close()
+
 
 class Medicamento:
     def __init__(self, cod_anvisa_med, nome_comercial, fabricante_med, apresentacao_med, forma_administracao_med, principio_ativo_med):
