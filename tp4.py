@@ -231,6 +231,40 @@ def post_estoque_medicamento(estoque: EstoqueMedicamento):
         conn.rollback()
         return {'status': 'error', 'message': str(e)}
 
+# GET /unidades/<cod_unidade>/medicamentos/<lote>/<cod_anvisa>
+def get_estoque_medicamento(cod_unidade, lote, cod_anvisa):
+    df = pd.read_sql_query(
+        'SELECT * FROM medicamentoestocado WHERE cod_unidade = %s AND lote_med = %s AND cod_anvisa_med = %s',
+        conn,
+        params=(cod_unidade, lote, cod_anvisa))
+    
+    if df.empty:
+        return None
+    
+    estoque = EstoqueMedicamento(**df.iloc[0].to_dict())
+    return estoque
+
+# PUT /unidades/<cod_unidade>/medicamentos
+def update_estoque_medicamento(estoque: EstoqueMedicamento):
+    query = """
+    UPDATE medicamentoestocado
+    SET quantidade_med_estoque = %s
+    WHERE lote_med = %s AND cod_anvisa_med = %s AND cod_unidade = %s
+    """
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (
+                estoque.quantidade,
+                estoque.lote,
+                estoque.cod_anvisa,
+                estoque.cod_unidade
+            ))
+        conn.commit()
+        return {'status': 'success', 'message': 'Medicamento no estoque atualizado com sucesso.'}
+    except Exception as e:
+        conn.rollback()
+        return {'status': 'error', 'message': str(e)}
+
 # ==== Functions de renderização
 def render_unidades(unidades: list[UnidadeSaude]):
     # Print header
@@ -446,20 +480,24 @@ def menu_medicamentos_estoque_subtract():
     cod_anvisa = input("Código ANVISA do medicamento: ")
     quantidade = int(input("Quantidade a ser diminuída do estoque: "))
     
-    query = """
-    UPDATE medicamentoestocado
-    SET quantidade_med_estoque = quantidade_med_estoque - %s
-    WHERE lote_med = %s AND cod_anvisa_med = %s AND cod_unidade = %s
-    """
+    estoque = get_estoque_medicamento(cod_unidade, lote, cod_anvisa)
+    if not estoque:
+        print("Medicamento não encontrado no estoque desta unidade.")
+        return
     
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(query, (quantidade, lote, cod_anvisa, cod_unidade))
-        conn.commit()
-        print(f"{quantidade} unidades do medicamento {cod_anvisa} no lote {lote} foram removidas do estoque da unidade {unidade.nome}.")
-    except Exception as e:
-        conn.rollback()
-        print(f"Erro ao diminuir estoque: {str(e)}")
+    if estoque.quantidade < quantidade:
+        print("Quantidade a ser diminuída é maior que a quantidade disponível no estoque.")
+        return
+    
+    estoque.quantidade -= quantidade
+    
+    result = update_estoque_medicamento(estoque)
+    
+    if result['status'] == 'success':
+        print(result['message'])
+        
+    else:
+        print(f"Erro ao diminuir medicamento do estoque: {result['message']}")
 
 cases = {
     '1': menu_unidades_get,
