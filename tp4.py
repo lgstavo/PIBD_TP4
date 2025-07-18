@@ -459,8 +459,8 @@ def menu_medicamentos_estoque_add():
     cod_anvisa = input("Código ANVISA do medicamento: ")
     validade = input("Validade do medicamento (YYYY-MM-DD): ")
     quantidade = int(input("Quantidade no estoque: "))
-    
-    novo_estoque = EstoqueMedicamento(lote, cod_anvisa, cod_unidade, validade, quantidade)
+    validate_datetime = pd.to_datetime(validade, format='%Y-%m-%d', errors='coerce')
+    novo_estoque = EstoqueMedicamento(lote, cod_anvisa, cod_unidade, validate_datetime, quantidade)
     result = post_estoque_medicamento(novo_estoque)
     
     if result['status'] == 'success':
